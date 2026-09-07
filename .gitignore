@@ -8,3 +8,6 @@ env/
 .env
 
 .vscode/
+
+
+data/simulated_weather_results.csv
