@@ -6,188 +6,198 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-DATA_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)),
-    "data",
-    "simulated_weather_results.csv"
-)
+DATA_FILE = "../data/multistation_simulated_results.csv"
 
+# -------------------------------------------------------
+# Telangana district coordinates
+# -------------------------------------------------------
+
+STATION_COORDINATES = {
+    "Hyderabad":    {"lat": 17.3850, "lon": 78.4867},
+    "Medak":        {"lat": 18.0453, "lon": 78.2608},
+    "Sangareddy":   {"lat": 17.6199, "lon": 78.0820},
+    "Hanamkonda":   {"lat": 18.0000, "lon": 79.5800},
+    "Nizamabad":    {"lat": 18.6725, "lon": 78.0941},
+    "Karimnagar":   {"lat": 18.4386, "lon": 79.1288},
+    "Khammam":      {"lat": 17.2473, "lon": 80.1514},
+    "Mahbubnagar":  {"lat": 16.7488, "lon": 78.0035},
+}
+
+
+# -------------------------------------------------------
+# Load simulation CSV
+# -------------------------------------------------------
 
 def load_data():
+
     if not os.path.exists(DATA_FILE):
-        return None
+        return pd.DataFrame()
 
     df = pd.read_csv(DATA_FILE)
     df["datetime"] = pd.to_datetime(df["datetime"])
-
     return df
 
 
-def get_health_status(row):
-    """
-    Convert the ML/fault detection result into
-    a dashboard station health status.
+# -------------------------------------------------------
+# API 1 : Latest reading of all stations
+# -------------------------------------------------------
 
-    GREEN  -> Normal
-    YELLOW -> Warning
-    RED    -> Anomaly
-    """
-
-    # Confirmed anomaly or detected sensor fault
-    if row["final_status"] == "ANOMALY":
-        return "ANOMALY"
-
-    # Borderline Isolation Forest score
-    # Close to zero means the reading is getting
-    # closer to the anomaly boundary.
-    if row["anomaly_score"] <= 0.02:
-        return "WARNING"
-
-    return "NORMAL"
-
-
-@app.route("/")
-def home():
-    return jsonify({
-        "message": "WeatherGuard AI Backend is running",
-        "status": "success"
-    })
-
-
-@app.route("/api/weather")
-def get_weather():
+@app.route("/api/stations")
+def get_all_stations():
 
     df = load_data()
 
-    if df is None:
-        return jsonify({
-            "error": "Simulation data not found. Run Simulate.py first."
-        }), 404
+    if df.empty:
+        return jsonify([])
 
-    data = df.copy()
-
-    data["health_status"] = data.apply(
-        get_health_status,
-        axis=1
+    latest = (
+        df.sort_values("datetime")
+          .groupby("district")
+          .tail(1)
     )
 
-    data["datetime"] = data["datetime"].astype(str)
+    stations = []
 
-    return jsonify(
-        data.to_dict(orient="records")
-    )
+    for _, row in latest.iterrows():
+
+        stations.append({
+
+            "district": row["district"],
+
+            "lat": STATION_COORDINATES[row["district"]]["lat"],
+            "lon": STATION_COORDINATES[row["district"]]["lon"],
+
+            "temperature": round(float(row["T2M"]), 2),
+            "humidity": round(float(row["RH2M"]), 2),
+            "pressure": round(float(row["PS"]), 2),
+
+            "expected_temperature": round(
+                float(row["expected_temperature"]), 2
+            ),
+
+            "status": row["final_status"],
+            "fault": row["fault_type"],
+
+            "score": round(float(row["anomaly_score"]), 4),
+
+            "time": row["datetime"].strftime("%Y-%m-%d %H:%M")
+        })
+
+    return jsonify(stations)
 
 
-@app.route("/api/latest")
-def get_latest():
+# -------------------------------------------------------
+# API 2 : History of one district
+# -------------------------------------------------------
+
+@app.route("/api/history/<district>")
+def history(district):
 
     df = load_data()
 
-    if df is None:
-        return jsonify({
-            "error": "Simulation data not found."
-        }), 404
+    if df.empty:
+        return jsonify([])
 
-    latest = df.iloc[-1].copy()
-
-    health_status = get_health_status(latest)
-
-    latest["health_status"] = health_status
-
-    latest["datetime"] = str(
-        latest["datetime"]
+    history_df = (
+        df[df["district"].str.lower() == district.lower()]
+        .sort_values("datetime")
     )
 
-    return jsonify(
-        latest.to_dict()
-    )
+    result = []
+
+    for _, row in history_df.iterrows():
+
+        result.append({
+
+            "time": row["datetime"].strftime("%H:%M"),
+
+            "temperature": round(float(row["T2M"]), 2),
+            "humidity": round(float(row["RH2M"]), 2),
+            "pressure": round(float(row["PS"]), 2),
+
+            "status": row["final_status"]
+        })
+
+    return jsonify(result)
 
 
-@app.route("/api/summary")
-def get_summary():
-
-    df = load_data()
-
-    if df is None:
-        return jsonify({
-            "error": "Simulation data not found."
-        }), 404
-
-    # Calculate health status for every reading
-    df["health_status"] = df.apply(
-        get_health_status,
-        axis=1
-    )
-
-    total = len(df)
-
-    normal = int(
-        (df["health_status"] == "NORMAL").sum()
-    )
-
-    warnings = int(
-        (df["health_status"] == "WARNING").sum()
-    )
-
-    anomalies = int(
-        (df["health_status"] == "ANOMALY").sum()
-    )
-
-    spikes = int(
-        (df["fault_type"] == "SPIKE").sum()
-    )
-
-    stuck = int(
-        (df["fault_type"] == "STUCK").sum()
-    )
-
-    drift = int(
-        (df["fault_type"] == "DRIFT").sum()
-    )
-
-    return jsonify({
-        "total_readings": total,
-        "normal": normal,
-        "warnings": warnings,
-        "anomalies": anomalies,
-        "spikes": spikes,
-        "stuck": stuck,
-        "drift": drift
-    })
-
+# -------------------------------------------------------
+# API 3 : Active alerts only
+# -------------------------------------------------------
 
 @app.route("/api/alerts")
-def get_alerts():
+def alerts():
 
     df = load_data()
 
-    if df is None:
-        return jsonify({
-            "error": "Simulation data not found."
-        }), 404
+    if df.empty:
+        return jsonify([])
 
-    alerts = df[
-        df["final_status"] == "ANOMALY"
-    ].copy()
-
-    alerts["health_status"] = alerts.apply(
-        get_health_status,
-        axis=1
+    latest = (
+        df.sort_values("datetime")
+          .groupby("district")
+          .tail(1)
     )
 
-    alerts["datetime"] = alerts[
-        "datetime"
-    ].astype(str)
+    active = latest[latest["final_status"] == "ANOMALY"]
 
-    return jsonify(
-        alerts.to_dict(orient="records")
+    result = []
+
+    for _, row in active.iterrows():
+
+        result.append({
+
+            "district": row["district"],
+
+            "fault": row["fault_type"],
+
+            "temperature": round(float(row["T2M"]), 2),
+
+            "time": row["datetime"].strftime("%H:%M")
+        })
+
+    return jsonify(result)
+
+
+# -------------------------------------------------------
+# API 4 : Dashboard summary
+# -------------------------------------------------------
+
+@app.route("/api/summary")
+def summary():
+
+    df = load_data()
+
+    if df.empty:
+        return jsonify({})
+
+    latest = (
+        df.sort_values("datetime")
+          .groupby("district")
+          .tail(1)
     )
 
+    total = len(latest)
+
+    healthy = len(
+        latest[latest["final_status"] == "NORMAL"]
+    )
+
+    anomaly = total - healthy
+
+    return jsonify({
+
+        "totalStations": total,
+        "healthyStations": healthy,
+        "anomalyStations": anomaly,
+
+        "spike": len(latest[latest["fault_type"] == "SPIKE"]),
+        "stuck": len(latest[latest["fault_type"] == "STUCK"]),
+        "drift": len(latest[latest["fault_type"] == "DRIFT"]),
+    })
+
+
+# -------------------------------------------------------
 
 if __name__ == "__main__":
-
-    app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=True
-    )
+    app.run(debug=True)

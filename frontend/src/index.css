@@ -1,3 +1,8 @@
+/* =========================================================
+   WEATHERGUARD AI
+   Professional Monitoring Dashboard
+   ========================================================= */
+
 * {
   box-sizing: border-box;
 }
@@ -12,6 +17,11 @@ body {
   background: #f4f6f8;
   color: #172033;
 }
+
+
+/* =========================================
+   DASHBOARD
+========================================= */
 
 .dashboard {
   min-height: 100vh;
@@ -37,6 +47,7 @@ body {
   font-size: 32px;
   font-weight: 750;
   letter-spacing: -0.5px;
+  color: #172033;
 }
 
 .top-header p {
@@ -55,6 +66,7 @@ body {
   border-radius: 999px;
   font-size: 14px;
   font-weight: 600;
+  color: #344054;
 }
 
 .live-dot {
@@ -67,7 +79,7 @@ body {
 
 
 /* =========================================
-   ERROR
+   ERROR MESSAGE
 ========================================= */
 
 .error-message {
@@ -97,10 +109,21 @@ body {
   border-radius: 14px;
   padding: 18px;
   min-height: 125px;
+
   display: flex;
   flex-direction: column;
   justify-content: center;
+
   box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 14px rgba(16, 24, 40, 0.08);
 }
 
 .kpi-label {
@@ -114,6 +137,7 @@ body {
 .kpi-card strong {
   font-size: 30px;
   line-height: 1;
+  color: #172033;
 }
 
 .kpi-card small {
@@ -121,6 +145,9 @@ body {
   color: #7a8494;
   font-size: 12px;
 }
+
+
+/* KPI ACCENTS */
 
 .normal-kpi {
   border-top: 4px solid #16a34a;
@@ -143,7 +170,10 @@ body {
   background: #ffffff;
   border: 1px solid #e1e6eb;
   border-radius: 16px;
-  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
+
+  box-shadow:
+    0 3px 12px rgba(16, 24, 40, 0.05);
+
   overflow: hidden;
 }
 
@@ -151,7 +181,9 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+
   padding: 18px 20px;
+
   border-bottom: 1px solid #edf0f3;
 }
 
@@ -159,6 +191,7 @@ body {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
+  color: #172033;
 }
 
 .panel-header p {
@@ -169,17 +202,55 @@ body {
 
 
 /* =========================================
-   MAP + STATION
+   SMALL HEADER BADGES
+========================================= */
+
+.station-count,
+.chart-unit,
+.alert-count {
+  background: #f3f5f7;
+  color: #667085;
+
+  border-radius: 999px;
+
+  padding: 6px 11px;
+
+  font-size: 11px;
+  font-weight: 650;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================
+   MAP + CURRENT STATION
 ========================================= */
 
 .main-monitor-grid {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
+
+  grid-template-columns:
+    minmax(0, 1.7fr)
+    minmax(360px, 1fr);
+
   gap: 20px;
+
   margin-bottom: 20px;
+
+  align-items: stretch;
+}
+
+
+/* =========================================
+   MAP
+========================================= */
+
+.map-panel {
+  min-width: 0;
 }
 
 .map-wrapper {
+  width: 100%;
   height: 420px;
 }
 
@@ -188,22 +259,27 @@ body {
   height: 100%;
 }
 
-.station-count,
-.chart-unit,
-.alert-count {
-  background: #f3f5f7;
-  color: #667085;
-  border-radius: 999px;
-  padding: 6px 11px;
-  font-size: 11px;
-  font-weight: 650;
+/* Leaflet */
+
+.weather-map .leaflet-container {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
 }
+
+
+/* Map legend */
 
 .map-legend {
   display: flex;
+  align-items: center;
+
   gap: 22px;
+
   padding: 13px 20px;
+
   border-top: 1px solid #edf0f3;
+
   font-size: 12px;
   color: #667085;
 }
@@ -233,21 +309,70 @@ body {
 }
 
 
+/* Custom Leaflet markers */
+
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+
 /* =========================================
-   STATION PANEL
+   CURRENT STATION PANEL
 ========================================= */
 
 .station-panel {
+  min-width: 0;
   min-height: 100%;
+
+  display: flex;
+  flex-direction: column;
 }
+
+
+/* Station title */
+
+.station-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  gap: 15px;
+}
+
+.station-title h3 {
+  margin: 0;
+
+  font-size: 20px;
+  font-weight: 700;
+
+  color: #172033;
+}
+
+.station-title p {
+  margin: 5px 0 0;
+
+  font-size: 12px;
+  color: #7a8494;
+}
+
+
+/* =========================================
+   STATION HEALTH
+========================================= */
 
 .station-health {
   margin: 20px;
+
   padding: 15px;
+
   border-radius: 12px;
+
   display: flex;
   align-items: center;
+
   gap: 12px;
+
   border: 1px solid #e1e6eb;
 }
 
@@ -269,8 +394,12 @@ body {
 .health-dot {
   width: 13px;
   height: 13px;
+
   border-radius: 50%;
+
   background: #16a34a;
+
+  flex-shrink: 0;
 }
 
 .warning .health-dot {
@@ -283,65 +412,132 @@ body {
 
 .station-health strong {
   display: block;
+
   font-size: 16px;
+  font-weight: 700;
 }
 
 .station-health small {
   display: block;
+
   color: #667085;
+
   margin-top: 3px;
+
+  font-size: 11px;
 }
+
+
+/* =========================================
+   CURRENT READINGS
+========================================= */
 
 .current-readings {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
   gap: 12px;
+
   padding: 0 20px;
 }
 
 .current-reading {
   background: #f8fafc;
+
   border: 1px solid #e8ecf0;
+
   border-radius: 12px;
+
   padding: 14px;
+
+  min-width: 0;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.current-reading:hover {
+  background: #f5f8fb;
+  border-color: #d9e0e7;
 }
 
 .current-reading span {
   display: block;
+
   color: #7a8494;
+
   font-size: 11px;
+
   margin-bottom: 7px;
 }
 
 .current-reading strong {
+  display: block;
+
   font-size: 20px;
+  line-height: 1.2;
+
+  color: #172033;
+
+  word-break: break-word;
 }
 
 .current-reading small {
+  display: block;
+
+  margin-top: 4px;
+
   font-size: 11px;
   font-weight: 500;
+
+  color: #7a8494;
 }
+
+
+/* =========================================
+   STATION DETAILS
+========================================= */
 
 .station-details {
   margin: 18px 20px 0;
+
   border-top: 1px solid #edf0f3;
 }
 
 .station-details div {
   display: flex;
+
   justify-content: space-between;
+  align-items: center;
+
+  gap: 15px;
+
   padding: 11px 0;
+
   border-bottom: 1px solid #f0f2f4;
 }
 
 .station-details span {
   color: #667085;
+
   font-size: 12px;
+
+  flex-shrink: 0;
 }
 
 .station-details strong {
   font-size: 12px;
+
+  text-align: right;
+
+  word-break: break-word;
 }
+
+
+/* Status colors */
 
 .success-text {
   color: #15803d;
@@ -351,17 +547,97 @@ body {
   color: #dc2626;
 }
 
+
+/* =========================================
+   LAST UPDATE
+========================================= */
+
 .last-update {
+  margin-top: auto;
+
   padding: 14px 20px;
+
   color: #7a8494;
+
   font-size: 11px;
+
   background: #fafbfc;
+
+  border-top: 1px solid #edf0f3;
 }
+
+
+/* =========================================
+   LOADING
+========================================= */
 
 .loading {
   padding: 40px;
+
   text-align: center;
+
   color: #667085;
+
+  font-size: 13px;
+}
+
+
+/* =========================================
+   FAULT ALERT
+========================================= */
+
+.fault-alert {
+  margin: 16px 20px 20px;
+
+  padding: 13px 14px;
+
+  display: flex;
+  align-items: flex-start;
+
+  gap: 10px;
+
+  background: #fff4f4;
+
+  border: 1px solid #fecaca;
+
+  border-radius: 10px;
+}
+
+.fault-icon {
+  width: 27px;
+  height: 27px;
+
+  border-radius: 50%;
+
+  background: #dc2626;
+
+  color: #ffffff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-weight: 700;
+
+  flex-shrink: 0;
+}
+
+.fault-alert strong {
+  display: block;
+
+  color: #b42318;
+
+  font-size: 12px;
+}
+
+.fault-alert p {
+  margin: 4px 0 0;
+
+  color: #7f1d1d;
+
+  font-size: 11px;
+
+  line-height: 1.5;
 }
 
 
@@ -371,22 +647,54 @@ body {
 
 .charts-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
   gap: 20px;
+
   margin-bottom: 20px;
 }
 
+.chart-panel {
+  min-width: 0;
+}
+
 .chart-box {
+  width: 100%;
+
   height: 320px;
+  min-height: 320px;
+
   padding: 10px 15px 15px;
+
+  position: relative;
 }
 
 .chart-empty {
   height: 100%;
+
   display: flex;
+
   justify-content: center;
   align-items: center;
+
   color: #7a8494;
+
+  font-size: 13px;
+}
+
+
+/* Recharts */
+
+.chart-box .recharts-responsive-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 280px;
+}
+
+.chart-box .recharts-wrapper {
+  max-width: 100%;
 }
 
 
@@ -400,41 +708,71 @@ body {
 
 .table-wrapper {
   width: 100%;
+
   overflow-x: auto;
 }
 
 table {
   width: 100%;
+
   border-collapse: collapse;
 }
 
 th {
   text-align: left;
+
   background: #f8fafc;
+
   color: #667085;
+
   font-size: 11px;
+
   text-transform: uppercase;
+
   letter-spacing: 0.5px;
+
   padding: 13px 18px;
+
   border-bottom: 1px solid #e5e7eb;
+
+  white-space: nowrap;
 }
 
 td {
   padding: 14px 18px;
+
   font-size: 12px;
+
   border-bottom: 1px solid #edf0f3;
+
+  white-space: nowrap;
+}
+
+tbody tr {
+  transition: background 0.15s ease;
 }
 
 tbody tr:hover {
   background: #fafbfc;
 }
 
+
+/* =========================================
+   FAULT BADGES
+========================================= */
+
 .fault-badge {
   display: inline-block;
+
   padding: 5px 9px;
+
   border-radius: 6px;
+
   font-size: 10px;
+
   font-weight: 750;
+
+  letter-spacing: 0.2px;
 }
 
 .fault-badge.spike {
@@ -457,31 +795,53 @@ tbody tr:hover {
   color: #15803d;
 }
 
+
+/* =========================================
+   STATUS
+========================================= */
+
 .status-danger {
   color: #dc2626;
+
   font-weight: 750;
+
+  font-size: 11px;
+}
+
+.status-normal {
+  color: #15803d;
+
+  font-weight: 750;
+
   font-size: 11px;
 }
 
 .no-alerts {
   padding: 30px;
+
   text-align: center;
+
   color: #15803d;
+
   font-size: 14px;
 }
 
 
 /* =========================================
-   POPUP
+   MAP POPUP
 ========================================= */
 
 .popup h3 {
   margin-top: 0;
+
   margin-bottom: 12px;
+
+  font-size: 15px;
 }
 
 .popup p {
   margin: 7px 0;
+
   font-size: 12px;
 }
 
@@ -492,9 +852,13 @@ tbody tr:hover {
 
 footer {
   display: flex;
+
   justify-content: space-between;
+
   color: #8a94a3;
+
   font-size: 11px;
+
   padding: 12px 4px 4px;
 }
 
@@ -503,17 +867,47 @@ footer {
    RESPONSIVE
 ========================================= */
 
-@media (max-width: 1200px) {
+@media (max-width: 1250px) {
 
   .kpi-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 
   .main-monitor-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1.4fr 1fr;
   }
 
 }
+
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (max-width: 1050px) {
+
+  .dashboard {
+    padding: 20px;
+  }
+
+  .main-monitor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .map-wrapper {
+    height: 420px;
+  }
+
+  .station-panel {
+    min-height: auto;
+  }
+
+}
+
+
+/* =========================================
+   SMALL TABLET
+========================================= */
 
 @media (max-width: 800px) {
 
@@ -523,11 +917,16 @@ footer {
 
   .top-header {
     align-items: flex-start;
+
     gap: 15px;
   }
 
   .top-header h1 {
     font-size: 25px;
+  }
+
+  .top-header p {
+    font-size: 13px;
   }
 
   .kpi-grid {
@@ -544,12 +943,36 @@ footer {
 
   footer {
     flex-direction: column;
+
     gap: 5px;
   }
 
 }
 
+
+/* =========================================
+   MOBILE
+========================================= */
+
 @media (max-width: 500px) {
+
+  .dashboard {
+    padding: 12px;
+  }
+
+  .top-header {
+    flex-direction: column;
+  }
+
+  .top-header h1 {
+    font-size: 23px;
+  }
+
+  .live-indicator {
+    font-size: 12px;
+
+    padding: 8px 12px;
+  }
 
   .kpi-grid {
     grid-template-columns: 1fr;
@@ -559,13 +982,64 @@ footer {
     grid-template-columns: 1fr;
   }
 
-  .top-header {
-    flex-direction: column;
+  .map-wrapper {
+    height: 320px;
   }
 
   .map-legend {
     flex-wrap: wrap;
+
     gap: 12px;
   }
 
+  .panel-header {
+    padding: 15px;
+  }
+
+  .panel-header h2 {
+    font-size: 16px;
+  }
+
+  .station-health {
+    margin: 15px;
+  }
+
+  .current-readings {
+    padding: 0 15px;
+  }
+
+  .station-details {
+    margin-left: 15px;
+    margin-right: 15px;
+  }
+
+  .fault-alert {
+    margin-left: 15px;
+    margin-right: 15px;
+  }
+
+}
+/* =========================================
+   RECHARTS FIX
+========================================= */
+
+.chart-box {
+  width: 100%;
+  height: 320px;
+  min-height: 320px;
+  padding: 10px 15px 15px;
+  position: relative;
+}
+
+.chart-box .recharts-responsive-container {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.chart-box .recharts-wrapper {
+  width: 100% !important;
+}
+
+.chart-box svg {
+  display: block;
 }

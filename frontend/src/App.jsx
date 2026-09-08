@@ -1,12 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  MapContainer,
-  TileLayer,
-  CircleMarker,
-  Popup,
-} from "react-leaflet";
-
-import {
   LineChart,
   Line,
   XAxis,
@@ -16,234 +9,470 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+} from "react-leaflet";
+
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+import "./index.css";
+
+
+// =========================================================
+// API
+// =========================================================
+
+const API = "http://127.0.0.1:5000";
+
+
+// =========================================================
+// STATION ICON
+// =========================================================
+
+const createStationIcon = (status) => {
+
+  let color = "#16a34a";
+
+  if (status === "ANOMALY") {
+    color = "#dc2626";
+  }
+
+  if (status === "WARNING") {
+    color = "#eab308";
+  }
+
+  return L.divIcon({
+    className: "custom-marker",
+
+    html: `
+      <div
+        style="
+          width:18px;
+          height:18px;
+          background:${color};
+          border:3px solid white;
+          border-radius:50%;
+          box-shadow:0 2px 8px rgba(0,0,0,0.35);
+        "
+      ></div>
+    `,
+
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+};
+
+
+// =========================================================
+// APP
+// =========================================================
+
 function App() {
-  const [summary, setSummary] = useState(null);
-  const [latest, setLatest] = useState(null);
-  const [weatherData, setWeatherData] = useState([]);
+
+  const [stations, setStations] = useState([]);
+  const [selectedStation, setSelectedStation] = useState(null);
+
+  const [history, setHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
+
+  const [summary, setSummary] = useState({
+    totalStations: 0,
+    healthyStations: 0,
+    anomalyStations: 0,
+    spike: 0,
+    stuck: 0,
+    drift: 0,
+  });
+
   const [error, setError] = useState("");
 
+
+// =========================================================
+// FETCH STATIONS
+// =========================================================
+
+  const fetchStations = async () => {
+
+    try {
+
+      const response = await fetch(`${API}/api/stations`);
+
+      if (!response.ok) {
+        throw new Error("Could not load stations");
+      }
+
+      const data = await response.json();
+
+      console.log("STATIONS:", data);
+
+      setStations(data);
+
+      if (data.length > 0) {
+
+        setSelectedStation((previous) => {
+
+          if (!previous) {
+            return data[0];
+          }
+
+          const updated = data.find(
+            (station) =>
+              station.district === previous.district
+          );
+
+          return updated || data[0];
+
+        });
+
+      }
+
+      setError("");
+
+    } catch (err) {
+
+      console.error(err);
+
+      setError(
+        "Unable to connect to WeatherGuard AI backend."
+      );
+
+    }
+
+  };
+
+
+// =========================================================
+// FETCH SUMMARY
+// =========================================================
+
+  const fetchSummary = async () => {
+
+    try {
+
+      const response = await fetch(
+        `${API}/api/summary`
+      );
+
+      if (!response.ok) {
+        throw new Error("Summary unavailable");
+      }
+
+      const data = await response.json();
+
+      console.log("SUMMARY:", data);
+
+      setSummary(data);
+
+    } catch (err) {
+
+      console.error("Summary error:", err);
+
+    }
+
+  };
+
+
+// =========================================================
+// FETCH ALERTS
+// =========================================================
+
+  const fetchAlerts = async () => {
+
+    try {
+
+      const response = await fetch(
+        `${API}/api/alerts`
+      );
+
+      if (!response.ok) {
+        throw new Error("Alerts unavailable");
+      }
+
+      const data = await response.json();
+
+      console.log("ALERTS:", data);
+
+      setAlerts(data);
+
+    } catch (err) {
+
+      console.error("Alerts error:", err);
+
+    }
+
+  };
+
+
+// =========================================================
+// INITIAL DATA
+// =========================================================
+
   useEffect(() => {
-    const fetchDashboardData = async () => {
+
+    fetchStations();
+    fetchSummary();
+    fetchAlerts();
+
+    const interval = setInterval(() => {
+
+      fetchStations();
+      fetchSummary();
+      fetchAlerts();
+
+    }, 3000);
+
+    return () => clearInterval(interval);
+
+  }, []);
+
+
+// =========================================================
+// FETCH HISTORY
+// =========================================================
+
+  useEffect(() => {
+
+    if (!selectedStation) {
+      return;
+    }
+
+    const district = selectedStation.district;
+
+    const fetchHistory = async () => {
+
       try {
-        const summaryResponse = await fetch(
-          "http://127.0.0.1:5000/api/summary"
-        );
-        const summaryData = await summaryResponse.json();
 
-        const latestResponse = await fetch(
-          "http://127.0.0.1:5000/api/latest"
+        const response = await fetch(
+          `${API}/api/history/${encodeURIComponent(district)}`
         );
-        const latestData = await latestResponse.json();
 
-        const weatherResponse = await fetch(
-          "http://127.0.0.1:5000/api/weather"
-        );
-        const weatherResult = await weatherResponse.json();
-
-        const alertsResponse = await fetch(
-          "http://127.0.0.1:5000/api/alerts"
-        );
-        const alertsData = await alertsResponse.json();
-
-        if (
-          !summaryResponse.ok ||
-          !latestResponse.ok ||
-          !weatherResponse.ok ||
-          !alertsResponse.ok
-        ) {
-          throw new Error("Backend request failed");
+        if (!response.ok) {
+          throw new Error("History unavailable");
         }
 
-        setSummary(summaryData);
-        setLatest(latestData);
-        setWeatherData(weatherResult);
-        setAlerts(alertsData);
-        setError("");
-      } catch (err) {
-        console.error(err);
-        setError(
-          "Unable to connect to WeatherGuard AI backend."
+        const data = await response.json();
+
+        console.log(
+          `HISTORY ${district}:`,
+          data
         );
+
+        setHistory(data);
+
+      } catch (err) {
+
+        console.error(
+          "History error:",
+          err
+        );
+
+        setHistory([]);
+
       }
+
     };
 
-    fetchDashboardData();
+    fetchHistory();
 
     const interval = setInterval(
-      fetchDashboardData,
+      fetchHistory,
       3000
     );
 
     return () => clearInterval(interval);
-  }, []);
 
-  const getStationColor = () => {
-    if (!latest) return "green";
+  }, [selectedStation?.district]);
 
-    if (latest.health_status === "ANOMALY") {
-      return "red";
+
+// =========================================================
+// FORMAT STATUS
+// =========================================================
+
+  const getHealthClass = (status) => {
+
+    if (status === "ANOMALY") {
+      return "danger";
     }
 
-    if (latest.health_status === "WARNING") {
-      return "yellow";
+    if (status === "WARNING") {
+      return "warning";
     }
 
-    return "green";
+    return "healthy";
+
   };
 
-  const stationColor = getStationColor();
 
-  const chartData = weatherData.map((item) => {
-    const date = new Date(item.datetime);
-
-    return {
-      time: `${String(date.getHours()).padStart(2, "0")}:00`,
-      temperature: Number(item.T2M),
-      humidity: Number(item.RH2M),
-    };
-  });
-
-  const healthClass =
-    latest?.health_status === "ANOMALY"
-      ? "danger"
-      : latest?.health_status === "WARNING"
-      ? "warning"
-      : "healthy";
+// =========================================================
+// RENDER
+// =========================================================
 
   return (
+
     <div className="dashboard">
 
-      {/* ================= HEADER ================= */}
+      {/* =================================================
+          HEADER
+      ================================================= */}
 
       <header className="top-header">
 
         <div>
-          <h1>WeatherGuard AI</h1>
+
+          <h1>
+            WeatherGuard AI
+          </h1>
+
           <p>
-            Intelligent Automatic Weather Station
-            Anomaly Detection System
+            Intelligent Automatic Weather Station Monitoring
           </p>
+
         </div>
 
         <div className="live-indicator">
+
           <span className="live-dot"></span>
-          <span>System Active</span>
+
+          Live Monitoring
+
         </div>
 
       </header>
 
 
-      {/* ================= ERROR ================= */}
+      {/* =================================================
+          ERROR
+      ================================================= */}
 
       {error && (
+
         <div className="error-message">
-          ⚠️ {error}
+          {error}
         </div>
+
       )}
 
 
-      {/* ================= KPI CARDS ================= */}
+      {/* =================================================
+          KPI CARDS
+      ================================================= */}
 
-      {summary && (
-        <section className="kpi-grid">
+      <section className="kpi-grid">
 
-          <div className="kpi-card normal-kpi">
-            <span className="kpi-label">
-              NORMAL
-            </span>
+        <div className="kpi-card">
 
-            <strong>
-              {summary.normal}
-            </strong>
+          <span className="kpi-label">
+            TOTAL STATIONS
+          </span>
 
-            <small>
-              Healthy readings
-            </small>
-          </div>
+          <strong>
+            {summary.totalStations}
+          </strong>
 
+          <small>
+            Monitoring network
+          </small>
 
-          <div className="kpi-card warning-kpi">
-            <span className="kpi-label">
-              WARNING
-            </span>
-
-            <strong>
-              {summary.warnings}
-            </strong>
-
-            <small>
-              Borderline readings
-            </small>
-          </div>
+        </div>
 
 
-          <div className="kpi-card anomaly-kpi">
-            <span className="kpi-label">
-              ANOMALY
-            </span>
+        <div className="kpi-card normal-kpi">
 
-            <strong>
-              {summary.anomalies}
-            </strong>
+          <span className="kpi-label">
+            HEALTHY
+          </span>
 
-            <small>
-              Detected anomalies
-            </small>
-          </div>
+          <strong>
+            {summary.healthyStations}
+          </strong>
 
+          <small>
+            Normal stations
+          </small>
 
-          <div className="kpi-card">
-            <span className="kpi-label">
-              SPIKE
-            </span>
-
-            <strong>
-              {summary.spikes}
-            </strong>
-
-            <small>
-              Sudden changes
-            </small>
-          </div>
+        </div>
 
 
-          <div className="kpi-card">
-            <span className="kpi-label">
-              STUCK
-            </span>
+        <div className="kpi-card anomaly-kpi">
 
-            <strong>
-              {summary.stuck}
-            </strong>
+          <span className="kpi-label">
+            ANOMALIES
+          </span>
 
-            <small>
-              Sensor stuck
-            </small>
-          </div>
+          <strong>
+            {summary.anomalyStations}
+          </strong>
 
+          <small>
+            Stations requiring attention
+          </small>
 
-          <div className="kpi-card">
-            <span className="kpi-label">
-              DRIFT
-            </span>
-
-            <strong>
-              {summary.drift}
-            </strong>
-
-            <small>
-              Gradual changes
-            </small>
-          </div>
-
-        </section>
-      )}
+        </div>
 
 
-      {/* ================= MAP + CURRENT STATION ================= */}
+        <div className="kpi-card anomaly-kpi">
+
+          <span className="kpi-label">
+            SPIKE FAULTS
+          </span>
+
+          <strong>
+            {summary.spike}
+          </strong>
+
+          <small>
+            Sudden changes
+          </small>
+
+        </div>
+
+
+        <div className="kpi-card warning-kpi">
+
+          <span className="kpi-label">
+            STUCK FAULTS
+          </span>
+
+          <strong>
+            {summary.stuck}
+          </strong>
+
+          <small>
+            Repeated readings
+          </small>
+
+        </div>
+
+
+        <div className="kpi-card warning-kpi">
+
+          <span className="kpi-label">
+            DRIFT FAULTS
+          </span>
+
+          <strong>
+            {summary.drift}
+          </strong>
+
+          <small>
+            Gradual sensor drift
+          </small>
+
+        </div>
+
+      </section>
+
+
+      {/* =================================================
+          MAP + CURRENT STATION
+      ================================================= */}
 
       <section className="main-monitor-grid">
+
 
         {/* MAP */}
 
@@ -252,15 +481,19 @@ function App() {
           <div className="panel-header">
 
             <div>
-              <h2>AWS Health Map</h2>
+
+              <h2>
+                Weather Station Network
+              </h2>
 
               <p>
-                Real-time station monitoring
+                Real-time station health monitoring
               </p>
+
             </div>
 
             <span className="station-count">
-              1 Station Monitored
+              {stations.length} stations
             </span>
 
           </div>
@@ -269,9 +502,8 @@ function App() {
           <div className="map-wrapper">
 
             <MapContainer
-              center={[17.385, 78.4867]}
-              zoom={10}
-              scrollWheelZoom={true}
+              center={[17.8, 78.5]}
+              zoom={7}
               className="weather-map"
             >
 
@@ -281,77 +513,74 @@ function App() {
               />
 
 
-              <CircleMarker
-                center={[17.385, 78.4867]}
-                radius={16}
-                pathOptions={{
-                  color: stationColor,
-                  fillColor: stationColor,
-                  fillOpacity: 0.85,
-                  weight: 4,
-                }}
-              >
+              {stations.map((station) => (
 
-                <Popup>
+                <Marker
+                  key={station.district}
+                  position={[
+                    station.lat,
+                    station.lon
+                  ]}
+                  icon={createStationIcon(
+                    station.status
+                  )}
+                  eventHandlers={{
+                    click: () => {
+                      setSelectedStation(station);
+                    },
+                  }}
+                >
 
-                  <div className="popup">
+                  <Popup>
 
-                    <h3>
-                      Hyderabad AWS
-                    </h3>
+                    <div className="popup">
 
-                    <p>
-                      <strong>
-                        Health:
-                      </strong>{" "}
-                      {latest?.health_status}
-                    </p>
+                      <h3>
+                        {station.district}
+                      </h3>
 
-                    <p>
-                      <strong>
-                        Temperature:
-                      </strong>{" "}
-                      {latest
-                        ? `${Number(
-                            latest.T2M
-                          ).toFixed(2)} °C`
-                        : "--"}
-                    </p>
+                      <p>
+                        <strong>
+                          Temperature:
+                        </strong>{" "}
+                        {station.temperature} °C
+                      </p>
 
-                    <p>
-                      <strong>
-                        Humidity:
-                      </strong>{" "}
-                      {latest
-                        ? `${Number(
-                            latest.RH2M
-                          ).toFixed(2)} %`
-                        : "--"}
-                    </p>
+                      <p>
+                        <strong>
+                          Humidity:
+                        </strong>{" "}
+                        {station.humidity} %
+                      </p>
 
-                    <p>
-                      <strong>
-                        Pressure:
-                      </strong>{" "}
-                      {latest
-                        ? `${Number(
-                            latest.PS
-                          ).toFixed(2)} hPa`
-                        : "--"}
-                    </p>
+                      <p>
+                        <strong>
+                          Pressure:
+                        </strong>{" "}
+                        {station.pressure} hPa
+                      </p>
 
-                    <p>
-                      <strong>
-                        Fault:
-                      </strong>{" "}
-                      {latest?.fault_type || "NONE"}
-                    </p>
+                      <p>
+                        <strong>
+                          Status:
+                        </strong>{" "}
+                        {station.status}
+                      </p>
 
-                  </div>
+                      <p>
+                        <strong>
+                          Fault:
+                        </strong>{" "}
+                        {station.fault}
+                      </p>
 
-                </Popup>
+                    </div>
 
-              </CircleMarker>
+                  </Popup>
+
+                </Marker>
+
+              ))}
 
             </MapContainer>
 
@@ -362,7 +591,7 @@ function App() {
 
             <div>
               <span className="legend-circle green"></span>
-              Normal
+              Healthy
             </div>
 
             <div>
@@ -386,34 +615,76 @@ function App() {
 
           <div className="panel-header">
 
-            <div>
-              <h2>Current Station</h2>
-              <p>Latest AWS observation</p>
-            </div>
+            {selectedStation ? (
 
-          </div>
-
-
-          {latest ? (
-
-            <>
-
-              <div className={`station-health ${healthClass}`}>
-
-                <span className="health-dot"></span>
+              <div className="station-title">
 
                 <div>
-                  <strong>
-                    {latest.health_status}
-                  </strong>
 
-                  <small>
-                    Hyderabad AWS
-                  </small>
+                  <h3>
+                    {selectedStation.district}
+                  </h3>
+
+                  <p>
+                    Automatic Weather Station
+                  </p>
+
                 </div>
 
               </div>
 
+            ) : (
+
+              <div>
+
+                <h2>
+                  Current Station
+                </h2>
+
+                <p>
+                  Waiting for station data
+                </p>
+
+              </div>
+
+            )}
+
+          </div>
+
+
+          {selectedStation ? (
+
+            <>
+
+              {/* HEALTH */}
+
+              <div
+                className={`station-health ${getHealthClass(
+                  selectedStation.status
+                )}`}
+              >
+
+                <span className="health-dot"></span>
+
+                <div>
+
+                  <strong>
+                    {selectedStation.status ===
+                    "ANOMALY"
+                      ? "Anomaly Detected"
+                      : "Station Healthy"}
+                  </strong>
+
+                  <small>
+                    Sensor monitoring active
+                  </small>
+
+                </div>
+
+              </div>
+
+
+              {/* READINGS */}
 
               <div className="current-readings">
 
@@ -424,10 +695,14 @@ function App() {
                   </span>
 
                   <strong>
-                    {Number(
-                      latest.T2M
-                    ).toFixed(2)}°C
+                    {selectedStation.temperature} °C
                   </strong>
+
+                  <small>
+                    Expected{" "}
+                    {selectedStation.expected_temperature}
+                    °C
+                  </small>
 
                 </div>
 
@@ -439,10 +714,12 @@ function App() {
                   </span>
 
                   <strong>
-                    {Number(
-                      latest.RH2M
-                    ).toFixed(2)}%
+                    {selectedStation.humidity} %
                   </strong>
+
+                  <small>
+                    Relative humidity
+                  </small>
 
                 </div>
 
@@ -454,11 +731,12 @@ function App() {
                   </span>
 
                   <strong>
-                    {Number(
-                      latest.PS
-                    ).toFixed(2)}
-                    <small> hPa</small>
+                    {selectedStation.pressure} hPa
                   </strong>
+
+                  <small>
+                    Atmospheric pressure
+                  </small>
 
                 </div>
 
@@ -466,79 +744,109 @@ function App() {
                 <div className="current-reading">
 
                   <span>
-                    Expected Temp.
+                    Anomaly Score
                   </span>
 
                   <strong>
-                    {Number(
-                      latest.expected_temperature
-                    ).toFixed(2)}°C
+                    {selectedStation.score}
                   </strong>
+
+                  <small>
+                    Isolation Forest
+                  </small>
 
                 </div>
 
               </div>
 
+
+              {/* DETAILS */}
 
               <div className="station-details">
 
                 <div>
-                  <span>ML Detection</span>
+
+                  <span>
+                    Fault Type
+                  </span>
 
                   <strong>
-                    {latest.isolation_forest_status}
+                    {selectedStation.fault}
                   </strong>
+
                 </div>
 
 
                 <div>
-                  <span>Final Status</span>
+
+                  <span>
+                    Status
+                  </span>
 
                   <strong
                     className={
-                      latest.final_status === "ANOMALY"
+                      selectedStation.status ===
+                      "ANOMALY"
                         ? "danger-text"
                         : "success-text"
                     }
                   >
-                    {latest.final_status}
+                    {selectedStation.status}
                   </strong>
+
                 </div>
 
 
                 <div>
-                  <span>Fault Type</span>
 
-                  <strong
-                    className={
-                      latest.fault_type !== "NONE"
-                        ? "danger-text"
-                        : "success-text"
-                    }
-                  >
-                    {latest.fault_type}
-                  </strong>
-                </div>
-
-
-                <div>
-                  <span>Anomaly Score</span>
+                  <span>
+                    Last Reading
+                  </span>
 
                   <strong>
-                    {Number(
-                      latest.anomaly_score
-                    ).toFixed(4)}
+                    {selectedStation.time}
                   </strong>
+
                 </div>
 
               </div>
 
 
+              {/* FAULT ALERT */}
+
+              {selectedStation.status ===
+                "ANOMALY" && (
+
+                <div className="fault-alert">
+
+                  <div className="fault-icon">
+                    !
+                  </div>
+
+                  <div>
+
+                    <strong>
+                      Sensor anomaly detected
+                    </strong>
+
+                    <p>
+                      {selectedStation.fault !==
+                      "NONE"
+                        ? `${selectedStation.fault} fault detected at this station.`
+                        : "Isolation Forest detected an abnormal weather reading."}
+                    </p>
+
+                  </div>
+
+                </div>
+
+              )}
+
+
               <div className="last-update">
 
-                Last reading:
-                {" "}
-                {latest.datetime}
+                Last updated:{" "}
+                {selectedStation.time}
 
               </div>
 
@@ -547,7 +855,7 @@ function App() {
           ) : (
 
             <div className="loading">
-              Waiting for AWS data...
+              Loading station data...
             </div>
 
           )}
@@ -557,186 +865,89 @@ function App() {
       </section>
 
 
-      {/* ================= CHARTS ================= */}
+      {/* =================================================
+          CHARTS
+      ================================================= */}
 
       <section className="charts-grid">
 
+
         {/* TEMPERATURE */}
 
-        <div className="panel chart-panel">
-
-          <div className="panel-header">
-
-            <div>
-              <h2>Temperature Trend</h2>
-
-              <p>
-                AWS temperature over time
-              </p>
-            </div>
-
-            <span className="chart-unit">
-              °C
-            </span>
-
-          </div>
-
-
-          <div className="chart-box">
-
-            {chartData.length > 0 ? (
-
-              <ResponsiveContainer
-                width="100%"
-                height={300}
-              >
-
-                <LineChart
-                  data={chartData}
-                  margin={{
-                    top: 10,
-                    right: 20,
-                    left: 5,
-                    bottom: 10,
-                  }}
-                >
-
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                  />
-
-                  <XAxis
-                    dataKey="time"
-                  />
-
-                  <YAxis />
-
-                  <Tooltip />
-
-                  <Line
-                    type="monotone"
-                    dataKey="temperature"
-                    name="Temperature"
-                    strokeWidth={3}
-                    dot={{ r: 3 }}
-                    activeDot={{ r: 6 }}
-                  />
-
-                </LineChart>
-
-              </ResponsiveContainer>
-
-            ) : (
-
-              <div className="chart-empty">
-                Waiting for readings...
-              </div>
-
-            )}
-
-          </div>
-
-        </div>
+       <div className="chart-box">
+  <LineChart
+    width={600}
+    height={280}
+    data={history}
+    margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
+  >
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis dataKey="time" />
+    <YAxis />
+    <Tooltip />
+    <Line
+      type="monotone"
+      dataKey="temperature"
+      stroke="#2563eb"
+      strokeWidth={2}
+      dot={false}
+    />
+  </LineChart>
+</div>
 
 
         {/* HUMIDITY */}
 
-        <div className="panel chart-panel">
+       <div className="chart-box">
+  {history.length === 0 ? (
+    <div className="chart-empty">
+      No humidity data available
+    </div>
+  ) : (
+    <LineChart
+      width={600}
+      height={280}
+      data={history}
+      margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="time" />
+      <YAxis />
+      <Tooltip />
+      <Line
+        type="monotone"
+        dataKey="humidity"
+        stroke="#16a34a"
+        strokeWidth={2}
+        dot={false}
+      />
+    </LineChart>
+  )}
+</div>
+</section>
 
-          <div className="panel-header">
-
-            <div>
-              <h2>Humidity Trend</h2>
-
-              <p>
-                Relative humidity over time
-              </p>
-            </div>
-
-            <span className="chart-unit">
-              %
-            </span>
-
-          </div>
-
-
-          <div className="chart-box">
-
-            {chartData.length > 0 ? (
-
-              <ResponsiveContainer
-                width="100%"
-                height={300}
-              >
-
-                <LineChart
-                  data={chartData}
-                  margin={{
-                    top: 10,
-                    right: 20,
-                    left: 5,
-                    bottom: 10,
-                  }}
-                >
-
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                  />
-
-                  <XAxis
-                    dataKey="time"
-                  />
-
-                  <YAxis
-                    domain={[0, 100]}
-                  />
-
-                  <Tooltip />
-
-                  <Line
-                    type="monotone"
-                    dataKey="humidity"
-                    name="Humidity"
-                    strokeWidth={3}
-                    dot={{ r: 3 }}
-                    activeDot={{ r: 6 }}
-                  />
-
-                </LineChart>
-
-              </ResponsiveContainer>
-
-            ) : (
-
-              <div className="chart-empty">
-                Waiting for readings...
-              </div>
-
-            )}
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* ================= ALERTS ================= */}
+      {/* =================================================
+          ALERTS
+      ================================================= */}
 
       <section className="panel alerts-panel">
 
         <div className="panel-header">
 
           <div>
-            <h2>Recent Alerts</h2>
+
+            <h2>
+              Active Alerts
+            </h2>
 
             <p>
-              Anomalies requiring maintenance attention
+              Stations requiring attention
             </p>
+
           </div>
 
           <span className="alert-count">
-            {alerts.length} Alerts
+            {alerts.length} active
           </span>
 
         </div>
@@ -745,7 +956,7 @@ function App() {
         {alerts.length === 0 ? (
 
           <div className="no-alerts">
-            ✓ No active anomalies detected
+            ✓ No active sensor anomalies
           </div>
 
         ) : (
@@ -758,13 +969,25 @@ function App() {
 
                 <tr>
 
-                  <th>Time</th>
-                  <th>Station</th>
-                  <th>Temperature</th>
-                  <th>Humidity</th>
-                  <th>Fault</th>
-                  <th>ML Detection</th>
-                  <th>Status</th>
+                  <th>
+                    District
+                  </th>
+
+                  <th>
+                    Fault Type
+                  </th>
+
+                  <th>
+                    Temperature
+                  </th>
+
+                  <th>
+                    Time
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
 
                 </tr>
 
@@ -779,37 +1002,25 @@ function App() {
                     <tr key={index}>
 
                       <td>
-                        {alert.datetime}
-                      </td>
-
-                      <td>
-                        Hyderabad AWS
-                      </td>
-
-                      <td>
-                        {Number(
-                          alert.T2M
-                        ).toFixed(2)} °C
-                      </td>
-
-                      <td>
-                        {Number(
-                          alert.RH2M
-                        ).toFixed(2)} %
+                        {alert.district}
                       </td>
 
                       <td>
 
                         <span
-                          className={`fault-badge ${alert.fault_type.toLowerCase()}`}
+                          className={`fault-badge ${alert.fault.toLowerCase()}`}
                         >
-                          {alert.fault_type}
+                          {alert.fault}
                         </span>
 
                       </td>
 
                       <td>
-                        {alert.isolation_forest_status}
+                        {alert.temperature} °C
+                      </td>
+
+                      <td>
+                        {alert.time}
                       </td>
 
                       <td>
@@ -836,26 +1047,26 @@ function App() {
       </section>
 
 
-      {/* ================= FOOTER ================= */}
+      {/* =================================================
+          FOOTER
+      ================================================= */}
 
       <footer>
 
         <span>
-          WeatherGuard AI
+          WeatherGuard AI • Intelligent AWS Monitoring
         </span>
 
         <span>
-          Intelligent AWS Monitoring
-        </span>
-
-        <span>
-          Real-time anomaly detection
+          Powered by Isolation Forest
         </span>
 
       </footer>
 
     </div>
+
   );
+
 }
 
 export default App;
