@@ -4635,10 +4635,594 @@ body {
   }
 
 }
-/* ============================================================
-   SIMULATE DATA CONTROL
-   ============================================================ */
+/* =========================================================
+   STATION DETAILS GLASS BACKGROUND
+   ========================================================= */
 
+.station-details {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 10% 15%,
+      rgba(76, 180, 255, 0.28),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 90% 25%,
+      rgba(116, 220, 194, 0.22),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 50% 90%,
+      rgba(120, 160, 255, 0.18),
+      transparent 32%
+    ),
+    linear-gradient(
+      135deg,
+      #e5f4ff,
+      #f5fbff 45%,
+      #eaf8f5
+    );
+}
+
+
+/* =========================================================
+   MOVING LIGHT / CLOUD-LIKE BACKGROUND
+   This makes the glass effect actually visible
+   ========================================================= */
+
+.station-details::before,
+.station-details::after {
+  content: "";
+  position: absolute;
+
+  width: 500px;
+  height: 500px;
+
+  border-radius: 50%;
+
+  filter: blur(70px);
+
+  pointer-events: none;
+
+  z-index: 0;
+}
+
+.station-details::before {
+  top: -180px;
+  left: -150px;
+
+  background: rgba(110, 190, 255, 0.22);
+
+  animation: glassCloudOne 18s ease-in-out infinite alternate;
+}
+
+.station-details::after {
+  right: -180px;
+  top: 300px;
+
+  background: rgba(130, 220, 200, 0.18);
+
+  animation: glassCloudTwo 22s ease-in-out infinite alternate;
+}
+
+
+@keyframes glassCloudOne {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(180px, 60px) scale(1.15);
+  }
+
+  100% {
+    transform: translate(320px, -40px) scale(0.95);
+  }
+}
+
+
+@keyframes glassCloudTwo {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(-160px, -80px) scale(1.2);
+  }
+
+  100% {
+    transform: translate(-300px, 40px) scale(0.95);
+  }
+}
+
+
+/* =========================================================
+   KEEP CONTENT ABOVE BACKGROUND
+   ========================================================= */
+
+.station-details > *,
+.station-details-container {
+  position: relative;
+  z-index: 1;
+}
+
+
+/* =========================================================
+   REAL GLASS
+   ========================================================= */
+
+.station-glass-card,
+.station-hero-card,
+.sensor-card,
+.station-status-card,
+.station-anomaly-card,
+.station-details-header {
+
+  position: relative;
+
+  /* IMPORTANT:
+     Much more transparent than the previous version */
+  background: rgba(255, 255, 255, 0.28);
+
+  /* Glass edge */
+  border: 1px solid rgba(255, 255, 255, 0.65);
+
+  border-radius: 24px;
+
+  /* THIS is the actual glass blur */
+  backdrop-filter: blur(25px) saturate(140%);
+  -webkit-backdrop-filter: blur(25px) saturate(140%);
+
+  /* Glass depth */
+  box-shadow:
+    0 20px 50px rgba(31, 78, 121, 0.10),
+    inset 0 1px 1px rgba(255, 255, 255, 0.85),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.20);
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   GLASS REFLECTION
+   ========================================================= */
+
+.station-glass-card::before,
+.station-hero-card::before,
+.sensor-card::before,
+.station-status-card::before,
+.station-anomaly-card::before {
+
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 45%;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.32),
+      rgba(255, 255, 255, 0)
+    );
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   HERO CARD
+   ========================================================= */
+
+.station-hero-card {
+
+  background: rgba(255, 255, 255, 0.25);
+
+  border-radius: 28px;
+
+  backdrop-filter: blur(30px) saturate(145%);
+  -webkit-backdrop-filter: blur(30px) saturate(145%);
+
+  box-shadow:
+    0 25px 60px rgba(31, 78, 121, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+
+/* =========================================================
+   SENSOR CARDS
+   ========================================================= */
+
+.sensor-card {
+
+  background: rgba(255, 255, 255, 0.25);
+
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+
+.sensor-card:hover {
+
+  transform: translateY(-4px);
+
+  background: rgba(255, 255, 255, 0.38);
+
+  box-shadow:
+    0 25px 50px rgba(31, 78, 121, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+
+/* =========================================================
+   STATUS CARD
+   ========================================================= */
+
+.station-status-card {
+
+  background: rgba(255, 255, 255, 0.25);
+
+  backdrop-filter: blur(25px) saturate(140%);
+  -webkit-backdrop-filter: blur(25px) saturate(140%);
+}
+
+
+/* =========================================================
+   ANOMALY CARD
+   ========================================================= */
+
+.station-anomaly-card {
+
+  background: rgba(255, 220, 220, 0.25);
+
+  border: 1px solid rgba(255, 150, 150, 0.35);
+
+  backdrop-filter: blur(25px) saturate(140%);
+  -webkit-backdrop-filter: blur(25px) saturate(140%);
+
+  box-shadow:
+    0 20px 45px rgba(220, 50, 50, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+
+/* =========================================================
+   HEADER GLASS
+   ========================================================= */
+
+.station-details-header {
+
+  background: rgba(255, 255, 255, 0.30);
+
+  backdrop-filter: blur(30px) saturate(145%);
+  -webkit-backdrop-filter: blur(30px) saturate(145%);
+
+  border-radius: 24px;
+}
+
+
+/* =========================================================
+   BUTTON GLASS
+   ========================================================= */
+
+.station-back-button {
+
+  background: rgba(255, 255, 255, 0.30);
+
+  border: 1px solid rgba(255, 255, 255, 0.70);
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  box-shadow:
+    0 8px 25px rgba(31, 78, 121, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+
+.station-back-button:hover {
+
+  background: rgba(255, 255, 255, 0.50);
+
+  transform: translateY(-2px);
+}
+/* =========================================================
+   WEATHERGUARD AI — STATION DETAILS
+   DASHBOARD BLUE SKY + GLASS THEME  (complete block)
+   Paste at the VERY END of index.css.
+   Every selector starts with .station-page, so the login
+   page and the dashboard are not affected.
+   ========================================================= */
+
+
+/* ---------- PAGE BACKGROUND (same blue sky as dashboard) ---------- */
+
+.station-page {
+  background:
+    radial-gradient(
+      circle at 85% 8%,
+      rgba(255, 255, 255, 0.38),
+      transparent 30%
+    ),
+    linear-gradient(
+      180deg,
+      #b9def8 0%,
+      #91c5ed 45%,
+      #6fa8dc 100%
+    ) !important;
+}
+
+
+/* soft sun glow, matching the dashboard */
+
+.station-page .sun-glow {
+  background:
+    radial-gradient(
+      circle,
+      rgba(255, 246, 190, 0.75) 0%,
+      rgba(255, 244, 160, 0.30) 38%,
+      transparent 70%
+    );
+}
+
+
+/* ---------- MOVING CLOUD LAYERS (same as dashboard) ----------
+   OPTIONAL: delete this whole section (down to the
+   @keyframes) if you do not want the drifting clouds. */
+
+.station-page::before,
+.station-page::after {
+  content: "";
+  position: absolute;
+  left: -20%;
+  width: 140%;
+  height: 260px;
+  pointer-events: none;
+  z-index: 0;
+
+  background-repeat: no-repeat;
+  background-size: 900px 260px;
+
+  opacity: 0.16;
+  filter: blur(1px);
+
+  animation: stationSkyCloudMove 55s linear infinite;
+}
+
+.station-page::before {
+  top: 70px;
+
+  background-image:
+    radial-gradient(
+      ellipse 180px 75px at 15% 55%,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0.65) 45%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse 230px 90px at 45% 40%,
+      rgba(255, 255, 255, 0.90) 0%,
+      rgba(255, 255, 255, 0.55) 45%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse 170px 70px at 78% 60%,
+      rgba(255, 255, 255, 0.90) 0%,
+      rgba(255, 255, 255, 0.50) 45%,
+      transparent 75%
+    );
+}
+
+.station-page::after {
+  top: 250px;
+
+  opacity: 0.10;
+
+  background-size: 1200px 300px;
+
+  background-image:
+    radial-gradient(
+      ellipse 240px 95px at 10% 50%,
+      rgba(255, 255, 255, 0.9) 0%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 190px 75px at 55% 65%,
+      rgba(255, 255, 255, 0.85) 0%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 250px 100px at 90% 45%,
+      rgba(255, 255, 255, 0.85) 0%,
+      transparent 72%
+    );
+
+  animation-duration: 85s;
+  animation-direction: reverse;
+}
+
+@keyframes stationSkyCloudMove {
+  0%   { transform: translateX(-8%); }
+  50%  { transform: translateX(8%); }
+  100% { transform: translateX(-8%); }
+}
+
+
+/* =========================================================
+   GLASS SURFACES
+   Top bar, hero, chart cards, diagnosis, error card
+   ========================================================= */
+
+.station-page .station-topbar,
+.station-page .station-hero,
+.station-page .station-chart-card,
+.station-page .diagnosis-card,
+.station-page .station-error-card {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.30) 0%,
+      rgba(255, 255, 255, 0) 45%
+    ),
+    rgba(255, 255, 255, 0.46) !important;
+
+  border: 1px solid rgba(255, 255, 255, 0.72) !important;
+
+  backdrop-filter: blur(14px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+
+  box-shadow:
+    0 10px 30px rgba(40, 90, 145, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.80) !important;
+}
+
+
+/* =========================================================
+   SENSOR CARDS (only on the station details page)
+   ========================================================= */
+
+.station-page .sensor-card {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.30) 0%,
+      rgba(255, 255, 255, 0) 45%
+    ),
+    rgba(255, 255, 255, 0.46) !important;
+
+  border: 1px solid rgba(255, 255, 255, 0.72) !important;
+  border-radius: 20px !important;
+
+  backdrop-filter: blur(14px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+
+  box-shadow:
+    0 8px 25px rgba(40, 90, 145, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78) !important;
+}
+
+/* the old white reflection overlay would wash out the text */
+.station-page .sensor-card::before {
+  display: none;
+}
+
+.station-page .sensor-card:hover {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.34) 0%,
+      rgba(255, 255, 255, 0) 45%
+    ),
+    rgba(255, 255, 255, 0.58) !important;
+
+  box-shadow:
+    0 14px 32px rgba(40, 90, 145, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
+}
+
+.station-page .sensor-icon {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+/* keep the hPa unit on the same line as the number */
+.station-page .sensor-info strong .unit {
+  display: inline;
+  margin: 0;
+}
+
+
+/* =========================================================
+   BUTTONS (glass, like the dashboard logout button)
+   ========================================================= */
+
+.station-page .station-topbar .back-dashboard,
+.station-page .station-topbar .station-logout {
+  background: rgba(255, 255, 255, 0.48) !important;
+
+  border: 1px solid rgba(255, 255, 255, 0.68) !important;
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  box-shadow: 0 5px 15px rgba(40, 90, 145, 0.08);
+}
+
+.station-page .station-topbar .back-dashboard:hover,
+.station-page .station-topbar .station-logout:hover {
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+
+/* =========================================================
+   STATUS PILLS (a bit more solid so they stay readable)
+   ========================================================= */
+
+.station-page .status-pill.status-healthy {
+  background: rgba(221, 249, 234, 0.88);
+}
+
+.station-page .status-pill.status-danger {
+  background: rgba(255, 231, 231, 0.88);
+}
+
+
+/* =========================================================
+   DIAGNOSIS ICON (red when there is an anomaly)
+   Needs the small JSX change:
+   <div className={`diagnosis-icon ${isAnomaly ? "diagnosis-danger" : ""}`}>
+   ========================================================= */
+
+.station-page .diagnosis-icon.diagnosis-danger {
+  color: #c92540;
+  background: rgba(255, 231, 231, 0.88);
+}
+
+
+/* =========================================================
+   TEXT COLOURS (slightly darker for the blue background)
+   ========================================================= */
+
+.station-page .station-eyebrow {
+  color: #4a6784;
+}
+
+.station-page .station-last-reading,
+.station-page .fault-label {
+  color: #4a6784;
+}
+
+.station-page .sensor-info > span,
+.station-page .chart-heading p,
+.station-page .diagnosis-content p {
+  color: #56728e;
+}
+
+.station-page .station-footer {
+  color: #35566f;
+}
+
+.station-page .station-footer span:first-child {
+  color: #1f4568;
+}
+
+.station-page .station-loading {
+  color: #123a63;
+}
+
+.station-page .diagnosis-meta {
+  border-left-color: rgba(60, 100, 140, 0.18);
+}
+/* Simulate Data button */
 .simulation-control {
   display: flex;
   flex-direction: column;
@@ -4646,27 +5230,19 @@ body {
   gap: 4px;
 }
 
-/* Main simulation button */
 .simulate-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-
   min-width: 150px;
   height: 42px;
-
   padding: 0 18px;
 
   border: 1px solid rgba(59, 130, 246, 0.25);
   border-radius: 12px;
 
-  background: linear-gradient(
-    135deg,
-    #eaf5ff,
-    #dceeff
-  );
-
+  background: linear-gradient(135deg, #eaf5ff, #dceeff);
   color: #1769aa;
 
   font-size: 13px;
@@ -4684,26 +5260,18 @@ body {
     background 0.2s ease;
 }
 
-/* Hover */
 .simulate-button:hover:not(:disabled) {
   transform: translateY(-1px);
-
-  background: linear-gradient(
-    135deg,
-    #dff0ff,
-    #cfe7ff
-  );
+  background: linear-gradient(135deg, #dff0ff, #cfe7ff);
 
   box-shadow:
     0 7px 18px rgba(30, 100, 180, 0.18);
 }
 
-/* Click */
 .simulate-button:active:not(:disabled) {
   transform: translateY(0);
 }
 
-/* Play / loading icon */
 .simulate-icon {
   display: inline-flex;
   align-items: center;
@@ -4713,41 +5281,30 @@ body {
   height: 22px;
 
   border-radius: 50%;
-
   background: rgba(59, 130, 246, 0.12);
 
   font-size: 11px;
   color: #1976d2;
 }
 
-/* Running state */
 .simulate-button.simulation-running {
   cursor: not-allowed;
 
-  background: linear-gradient(
-    135deg,
-    #eef7ff,
-    #e4f1fc
-  );
-
+  background: linear-gradient(135deg, #eef7ff, #e4f1fc);
   color: #5b7c99;
 
   opacity: 0.9;
 }
 
-/* Small instruction underneath */
 .simulation-helper-text {
   font-size: 10px;
   font-weight: 500;
-
   color: #7891a6;
 
   letter-spacing: 0.1px;
-
   white-space: nowrap;
 }
 
-/* Running icon animation */
 .simulation-running .simulate-icon {
   animation: simulationPulse 1.2s ease-in-out infinite;
 }
@@ -4767,16 +5324,4 @@ body {
     transform: rotate(360deg);
     opacity: 0.7;
   }
-}
-.map-helper-text {
-  margin: 8px 0 0;
-
-  text-align: center;
-
-  font-size: 11px;
-  font-weight: 500;
-
-  color: #7891a6;
-
-  letter-spacing: 0.1px;
 }
