@@ -2,6 +2,13 @@ import pandas as pd
 import numpy as np
 import joblib
 
+from sklearn.metrics import (
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix
+)
+
 # ============================================================
 # CONFIGURATION
 # ============================================================
@@ -48,9 +55,6 @@ print("Model loaded successfully.")
 # SELECT CLEAN TEST DATA
 # ============================================================
 
-# Use a continuous section from each district.
-# We intentionally use clean historical data before injecting faults.
-
 test_parts = []
 
 for district in df["district"].unique():
@@ -79,7 +83,10 @@ def create_features(data):
         ["district", "datetime"]
     ).reset_index(drop=True)
 
-    # Differences
+    # --------------------------------------------------------
+    # Difference features
+    # --------------------------------------------------------
+
     data["T2M_diff"] = (
         data.groupby("district")["T2M"].diff()
     )
@@ -92,7 +99,10 @@ def create_features(data):
         data.groupby("district")["RH2M"].diff()
     )
 
+    # --------------------------------------------------------
     # Rolling standard deviation
+    # --------------------------------------------------------
+
     for col in ["T2M", "PS", "RH2M"]:
 
         data[f"{col}_roll_std"] = (
@@ -105,18 +115,27 @@ def create_features(data):
             )
         )
 
+    # --------------------------------------------------------
     # Time features
+    # --------------------------------------------------------
+
     data["hour"] = data["datetime"].dt.hour
     data["month"] = data["datetime"].dt.month
 
-    # Merge district-specific climatology
+    # --------------------------------------------------------
+    # Merge climatology
+    # --------------------------------------------------------
+
     data = data.merge(
         climatology,
         on=["district", "month", "hour"],
         how="left"
     )
 
+    # --------------------------------------------------------
     # Seasonal z-scores
+    # --------------------------------------------------------
+
     for col in ["T2M", "PS", "RH2M"]:
 
         data[f"{col}_seasonal_zscore"] = (
@@ -127,7 +146,7 @@ def create_features(data):
 
 
 # ============================================================
-# BASELINE TEST
+# TEST 1 - CLEAN DATA
 # ============================================================
 
 print("\n" + "=" * 70)
@@ -142,8 +161,21 @@ X_clean = baseline[FEATURES]
 
 baseline_predictions = model.predict(X_clean)
 
-clean_anomalies = (baseline_predictions == -1).sum()
-clean_total = len(baseline_predictions)
+# Convert Isolation Forest:
+# -1 = anomaly
+#  1 = normal
+#
+# Our evaluation format:
+# 0 = normal
+# 1 = anomaly
+
+clean_predictions = (
+    baseline_predictions == -1
+).astype(int)
+
+clean_total = len(clean_predictions)
+
+clean_anomalies = clean_predictions.sum()
 
 clean_false_positive_rate = (
     clean_anomalies / clean_total * 100
@@ -151,6 +183,7 @@ clean_false_positive_rate = (
 
 print("\nClean test rows:", clean_total)
 print("False anomalies:", clean_anomalies)
+
 print(
     "False-positive rate:",
     round(clean_false_positive_rate, 2),
@@ -158,50 +191,47 @@ print(
 )
 
 # ============================================================
-# FAULT INJECTION DATA
+# CREATE FAULT DATA
 # ============================================================
 
 fault_data = test_df.copy()
 
-# Make three separate copies
+# Three independent fault scenarios
 spike_data = fault_data.copy()
 stuck_data = fault_data.copy()
 drift_data = fault_data.copy()
 
-# ------------------------------------------------------------
-# SPIKE
-# ------------------------------------------------------------
+# ============================================================
+# SPIKE FAULT
+# ============================================================
 
-# Inject a very sudden temperature spike
 spike_index = 50
-
-district = spike_data.iloc[spike_index]["district"]
 
 spike_data.loc[
     spike_data.index[spike_index],
     "T2M"
 ] += 25
 
-# ------------------------------------------------------------
-# STUCK SENSOR
-# ------------------------------------------------------------
+# ============================================================
+# STUCK SENSOR FAULT
+# ============================================================
 
-# Force temperature to remain exactly constant
 stuck_start = 50
 stuck_end = 60
 
-stuck_temperature = stuck_data.iloc[stuck_start]["T2M"]
+stuck_temperature = (
+    stuck_data.iloc[stuck_start]["T2M"]
+)
 
 stuck_data.loc[
     stuck_data.index[stuck_start:stuck_end],
     "T2M"
 ] = stuck_temperature
 
-# ------------------------------------------------------------
-# DRIFT
-# ------------------------------------------------------------
+# ============================================================
+# DRIFT FAULT
+# ============================================================
 
-# Gradually increase temperature
 drift_start = 50
 drift_end = 65
 
@@ -212,58 +242,187 @@ for i, index in enumerate(
     drift_data.loc[index, "T2M"] += i * 2
 
 # ============================================================
-# FUNCTION TO TEST A FAULT
+# FUNCTION TO EVALUATE ONE FAULT
 # ============================================================
 
-def evaluate_fault(name, data, injected_indexes):
+def evaluate_fault(
+    name,
+    data,
+    injected_indexes
+):
 
     features = create_features(data)
 
+    # Keep original datetime before dropping rows
     features = features.dropna().reset_index(drop=True)
 
     X = features[FEATURES]
 
     predictions = model.predict(X)
 
-    # Find whether the injected region contains
-    # at least one ML anomaly.
-    detected = False
+    # Convert:
+    # -1 -> 1 anomaly
+    #  1 -> 0 normal
 
-    for original_index in injected_indexes:
+    anomaly_predictions = (
+        predictions == -1
+    ).astype(int)
 
-        matching = features[
-            features["datetime"]
-            == data.loc[original_index, "datetime"]
+    # --------------------------------------------------------
+    # Match injected readings using datetime
+    # --------------------------------------------------------
+
+    injected_datetimes = set(
+        data.loc[
+            injected_indexes,
+            "datetime"
         ]
+    )
 
-        if len(matching) > 0:
+    actual_labels = (
+        features["datetime"]
+        .isin(injected_datetimes)
+        .astype(int)
+        .values
+    )
 
-            row_index = matching.index[0]
+    # --------------------------------------------------------
+    # Confusion matrix
+    # --------------------------------------------------------
 
-            if predictions[row_index] == -1:
-                detected = True
+    tn, fp, fn, tp = confusion_matrix(
+        actual_labels,
+        anomaly_predictions,
+        labels=[0, 1]
+    ).ravel()
 
-    anomaly_count = (predictions == -1).sum()
+    # --------------------------------------------------------
+    # Metrics
+    # --------------------------------------------------------
+
+    precision = precision_score(
+        actual_labels,
+        anomaly_predictions,
+        zero_division=0
+    )
+
+    recall = recall_score(
+        actual_labels,
+        anomaly_predictions,
+        zero_division=0
+    )
+
+    f1 = f1_score(
+        actual_labels,
+        anomaly_predictions,
+        zero_division=0
+    )
+
+    if (fp + tn) > 0:
+        fpr = fp / (fp + tn)
+    else:
+        fpr = 0
+
+    injected_count = actual_labels.sum()
+
+    detected_count = (
+        (
+            actual_labels == 1
+        )
+        &
+        (
+            anomaly_predictions == 1
+        )
+    ).sum()
+
+    detection_rate = (
+        detected_count / injected_count * 100
+        if injected_count > 0
+        else 0
+    )
+
+    # --------------------------------------------------------
+    # Print results
+    # --------------------------------------------------------
 
     print("\n" + "-" * 70)
     print(name)
     print("-" * 70)
 
-    print("Injected readings:", len(injected_indexes))
-    print("Detected by Isolation Forest:", detected)
-    print("Total anomalies in test:", anomaly_count)
+    print(
+        "Injected fault readings:",
+        injected_count
+    )
 
-    return detected
+    print(
+        "Detected fault readings:",
+        detected_count
+    )
+
+    print(
+        "Detection rate:",
+        round(detection_rate, 2),
+        "%"
+    )
+
+    print("\nConfusion Matrix:")
+    print(
+        "TN =", tn,
+        "| FP =", fp,
+        "| FN =", fn,
+        "| TP =", tp
+    )
+
+    print(
+        "\nPrecision:",
+        round(precision * 100, 2),
+        "%"
+    )
+
+    print(
+        "Recall:",
+        round(recall * 100, 2),
+        "%"
+    )
+
+    print(
+        "F1-score:",
+        round(f1 * 100, 2),
+        "%"
+    )
+
+    print(
+        "False-positive rate:",
+        round(fpr * 100, 2),
+        "%"
+    )
+
+    return {
+        "name": name,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "fpr": fpr,
+        "detection_rate": detection_rate / 100,
+        "tp": tp,
+        "tn": tn,
+        "fp": fp,
+        "fn": fn
+    }
 
 
 # ============================================================
 # TEST 2 - SPIKE
 # ============================================================
 
-spike_detected = evaluate_fault(
+spike_indexes = [
+    spike_index
+]
+
+spike_result = evaluate_fault(
     "SPIKE FAULT",
     spike_data,
-    [spike_index]
+    spike_indexes
 )
 
 # ============================================================
@@ -271,10 +430,12 @@ spike_detected = evaluate_fault(
 # ============================================================
 
 stuck_indexes = list(
-    stuck_data.index[stuck_start:stuck_end]
+    stuck_data.index[
+        stuck_start:stuck_end
+    ]
 )
 
-stuck_detected = evaluate_fault(
+stuck_result = evaluate_fault(
     "STUCK SENSOR FAULT",
     stuck_data,
     stuck_indexes
@@ -285,21 +446,113 @@ stuck_detected = evaluate_fault(
 # ============================================================
 
 drift_indexes = list(
-    drift_data.index[drift_start:drift_end]
+    drift_data.index[
+        drift_start:drift_end
+    ]
 )
 
-drift_detected = evaluate_fault(
+drift_result = evaluate_fault(
     "DRIFT FAULT",
     drift_data,
     drift_indexes
 )
 
 # ============================================================
+# OVERALL METRICS
+# ============================================================
+
+print("\n" + "=" * 70)
+print("OVERALL MODEL PERFORMANCE")
+print("=" * 70)
+
+results = [
+    spike_result,
+    stuck_result,
+    drift_result
+]
+
+# Average metrics across the three controlled fault tests
+
+overall_precision = np.mean([
+    r["precision"]
+    for r in results
+])
+
+overall_recall = np.mean([
+    r["recall"]
+    for r in results
+])
+
+overall_f1 = np.mean([
+    r["f1"]
+    for r in results
+])
+
+overall_fpr = np.mean([
+    r["fpr"]
+    for r in results
+])
+
+overall_detection = np.mean([
+    r["detection_rate"]
+    for r in results
+])
+
+print(
+    "\nPrecision:",
+    round(overall_precision * 100, 2),
+    "%"
+)
+
+print(
+    "Recall:",
+    round(overall_recall * 100, 2),
+    "%"
+)
+
+print(
+    "F1-score:",
+    round(overall_f1 * 100, 2),
+    "%"
+)
+
+print(
+    "False-positive rate:",
+    round(overall_fpr * 100, 2),
+    "%"
+)
+
+print(
+    "Overall fault detection rate:",
+    round(overall_detection * 100, 2),
+    "%"
+)
+
+# ============================================================
+# FAULT-WISE PERFORMANCE
+# ============================================================
+
+print("\n" + "=" * 70)
+print("FAULT-WISE DETECTION PERFORMANCE")
+print("=" * 70)
+
+for result in results:
+
+    print(
+        f"{result['name']}:",
+        round(
+            result["detection_rate"] * 100,
+            2
+        ),
+        "%"
+    )
+
+# ============================================================
 # FINAL SUMMARY
 # ============================================================
 
 print("\n" + "=" * 70)
-print("VALIDATION SUMMARY")
+print("FINAL VALIDATION SUMMARY")
 print("=" * 70)
 
 print(
@@ -309,18 +562,54 @@ print(
 )
 
 print(
-    "Spike detected:",
-    "YES" if spike_detected else "NO"
+    "\nOverall Precision:",
+    round(overall_precision * 100, 2),
+    "%"
 )
 
 print(
-    "Stuck detected:",
-    "YES" if stuck_detected else "NO"
+    "Overall Recall:",
+    round(overall_recall * 100, 2),
+    "%"
 )
 
 print(
-    "Drift detected:",
-    "YES" if drift_detected else "NO"
+    "Overall F1-score:",
+    round(overall_f1 * 100, 2),
+    "%"
+)
+
+print(
+    "Overall False-positive rate:",
+    round(overall_fpr * 100, 2),
+    "%"
+)
+
+print(
+    "\nSpike detection:",
+    round(
+        spike_result["detection_rate"] * 100,
+        2
+    ),
+    "%"
+)
+
+print(
+    "Stuck detection:",
+    round(
+        stuck_result["detection_rate"] * 100,
+        2
+    ),
+    "%"
+)
+
+print(
+    "Drift detection:",
+    round(
+        drift_result["detection_rate"] * 100,
+        2
+    ),
+    "%"
 )
 
 print("\n" + "=" * 70)
